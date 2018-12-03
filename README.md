@@ -6,5 +6,5 @@ To use this, download an executable from the [Releases](https://github.com/wolfi
 ![in_game.png](https://i.imgur.com/NVwTuVc.png)
 ![not_in_game.png](https://i.imgur.com/5jVuO3I.png)
 
-To compile this for Windows, clone the repository, create a virtualenv (recommended) of Python 3.6.7 or compatible, and have Pip install from the requirements.txt. You can make your own executable using the pyinstaleller command shown in .vscode/tasks.json (the correct pyinstaller version is included in the requirements.txt)
+To compile this for Windows, clone the repository, create a virtualenv (recommended) of Python 3.6.7 or compatible, and have Pip install from the requirements.txt. You can make your own executable using the Pyinstaller command shown in .vscode/tasks.json (the correct Pyinstaller version is included in the requirements.txt)
 
