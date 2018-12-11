@@ -6,12 +6,19 @@
         {
             "label": "Pyinstaller Build",
             "type": "shell",
-            "command": "./env/Scripts/pyinstaller.exe --onefile -F --noupx ./island_finder.py",
+            "command": "./env/Scripts/pyinstaller.exe --onefile -F --windowed --noupx ./island_finder.py",
             "problemMatcher": [],
             "group": {
                 "kind": "build",
                 "isDefault": true
             }
+        },
+        {
+            "label": "PyQT5 UI File Compile",
+            "type": "shell",
+            "command": "./env/scripts/pyuic5 main.ui -o main_ui.py",
+            "problemMatcher": [],
+            "group": "build"
         }
     ]
 }

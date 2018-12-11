@@ -6,18 +6,12 @@
 import winreg #To get the game's install location from the Windows Registry
 import glob #To find files matching the island name
 import os #To access files
-from colorama import init,Fore,Back,Style #For fancy colors
-init(autoreset=True)
+import sys
+from PyQt5.QtCore import Qt
+from PyQt5.uic import loadUi
+from PyQt5.QtWidgets import QApplication,QMainWindow,QLineEdit,QFileDialog
+from main_ui import *
 #========================================================#
-
-#Globals=================================================#
-#Colors
-HEADER_COLOR=Style.BRIGHT+Fore.CYAN
-GOOD_COLOR=Style.BRIGHT+Fore.GREEN
-WARN_COLOR=Style.BRIGHT+Fore.YELLOW
-ERROR_COLOR=Style.BRIGHT+Fore.RED
-#========================================================#
-
 #Functions===============================================#
 def is_int(s:str)->bool:
     try: 
@@ -25,50 +19,88 @@ def is_int(s:str)->bool:
         return True
     except ValueError:
         return False
-#========================================================#
 
+def get_install_from_reg():
+    try:
+        wa_reg_key=winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE,'SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Steam App 322780')
+        wa_install_path=winreg.QueryValueEx(wa_reg_key,'InstallLocation')[0]
+        return wa_install_path
+    except FileNotFoundError:
+        return ''
+#========================================================#
 #Main Code===============================================#
-print(HEADER_COLOR+'"Is my island in the game?" Let\'s find out!')
-wa_install_path=''
-#Try to Get Worlds Adrift Install Location from the Windows Registry
-try:
-    wa_reg_key=winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE,'SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Steam App 322780')
-    wa_install_path=winreg.QueryValueEx(wa_reg_key,'InstallLocation')[0]
-except FileNotFoundError:
-    #Get it from the user instead
-    print(ERROR_COLOR+'Couldn\'t get Worlds Adrift\'s install location from the registry.'+Fore.RESET+'\nPlease input manually (should end something like "SteamLibrary\steamapps\common\WorldsAdrift)"')
-    wa_install_path=input('> ')
+class Island_Finder(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.initUI()
+        self.show()
 
-#Path doesn't exist
-if not os.path.isdir(wa_install_path):
-    print(ERROR_COLOR+'"'+wa_install_path+'" is an invalid directory.')
-    input('Press return to exit...')
-    exit()
+    def initUI(self):
+        self.ui=Ui_MainWindow()
+        self.ui.setupUi(self)
+        self.ui.browse_button.clicked.connect(self.on_browse_clicked)
+        self.ui.folder_text_box.textChanged.connect(self.validate_dir)
+        self.ui.folder_text_box.setText(get_install_from_reg())
+        self.ui.island_id_box.textChanged.connect(self.find_island)
 
-print('Worlds Adrift Install Path: "'+wa_install_path+'"')
-islands_path=os.path.join(os.path.join(wa_install_path,'Assets'),'unity')
+    def validate_dir(self,s:str):
+        islands_path=os.path.join(s,os.path.join('Assets','unity'))
+        if not s:
+            self.ui.dir_label.setText('')
+        elif os.path.isdir(islands_path):
+            self.ui.dir_label.setStyleSheet('color: green;')
+            self.ui.dir_label.setText('Path exists, and islands folder found!')
+            self.ui.island_id_box.setEnabled(True)
+            self.ui.in_game_label.setEnabled(True)
+            self.ui.island_id_label.setEnabled(True)
+            os.chdir(islands_path)
+            return
+        elif os.path.isdir(s):
+            self.ui.dir_label.setStyleSheet('color: red;')
+            self.ui.dir_label.setText('Path "'+s+'" exists, but islands folder not found.')
 
-#Islands directory path doesn't exist
-if not os.path.isdir(islands_path):
-    print(ERROR_COLOR+'Could not find Assets/unity folder. Please make sure that the game path above is correct.')
-    input('Press return to exit...')
-    exit()
-os.chdir(islands_path)
+        else:
+            self.ui.dir_label.setStyleSheet('color: red;')
+            self.ui.dir_label.setText('Path "'+s+'" does not exist!')
+        self.ui.island_id_box.setEnabled(False)
+        self.ui.in_game_label.setEnabled(False)
+        self.ui.island_id_label.setEnabled(False)
 
-#Get Island Number
-island_num=input('Island number: ').strip()
-island_num=island_num.split('?id=')[1] if len(island_num.split('?id='))>1 else island_num.split('?id=')[0]
+        
+    def on_browse_clicked(self):
+        path=QFileDialog.getExistingDirectory(self,'Choose Directory...',(
+        self.ui.folder_text_box.text() if self.ui.folder_text_box.text() else 'C:\\'),QFileDialog.ShowDirsOnly)
+        self.ui.folder_text_box.setText(path)
 
-#User didn't enter something valid for the island number
-if not is_int(island_num):
-    print(ERROR_COLOR+'Invalid island number "'+island_num+'"')
-    input('Press return to exit...')
-    exit()
+    def find_island(self,s:str):
+        island_id=s.split('?id=')[1] if len(s.split('?id='))>1 else s.split('?id=')[0]
+        if not island_id:
+            self.ui.in_game_label.setText('')
+            return
+        elif not is_int(island_id):
+            self.ui.in_game_label.setStyleSheet('color: red;')
+            self.ui.in_game_label.setText('Invalid Island ID "'+island_id+'"')
+            return
+        island=''
+        #"Iterate" through files matching the island number (should just be 1 or 0 matches)
+        for f in glob.glob(island_id+'@island_unityclient'):
+            island=f
+        if island:
+            self.ui.in_game_label.setStyleSheet('color: green;')
+            self.ui.in_game_label.setText('Island "'+island_id+'" is in game!')
+        else:
+            self.ui.in_game_label.setStyleSheet('color: orange;')
+            self.ui.in_game_label.setText('Island "'+island_id+'" is not yet in game!')
 
-island=''
-#"Iterate" through files matching the island number (should just be 1 or 0 matches)
-for f in glob.glob(island_num+'@island_unityclient'):
-    island=f
-print(GOOD_COLOR+'Island "'+island_num+'" is in game!' if island else WARN_COLOR+'Island "'+island_num+'" is not currently in game.')
-input('Press return to exit...')
+
+    def event(self, e):
+        if e.type() == QtCore.QEvent.StatusTip:
+            if e.tip() == '':
+                e = QtGui.QStatusTipEvent('https://github.com/wolfinabox/Worlds_Adrift_Island_Finder')  # Set this to whatever you like
+        return super().event(e)
 #========================================================#
+if __name__ == '__main__':
+    #Run    
+    app = QApplication(sys.argv)
+    ex = Island_Finder()
+    sys.exit(app.exec_())
